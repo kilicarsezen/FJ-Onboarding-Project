@@ -1,15 +1,11 @@
-from cgi import print_environ, test
-from dbm import ndbm
-from operator import invert
+from tabnanny import verbose
 import pandas as pd
 from pandas.tseries.offsets import DateOffset
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.stattools import adfuller
 import math
-from scipy import signal
 from sklearn.preprocessing import StandardScaler
 from functools import partial
 from sklearn.metrics import mean_squared_error
@@ -17,12 +13,12 @@ from sklearn.model_selection import (TimeSeriesSplit, train_test_split, cross_va
 from sklearn.preprocessing import StandardScaler, scale
 from hyperopt import fmin, tpe, hp, Trials, STATUS_OK, STATUS_FAIL
 import xgboost as xgb
-from statsmodels.tsa.stattools import pacf, acf
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import make_scorer
 from sklearn.preprocessing import OneHotEncoder
 from statsmodels.tsa.seasonal import STL
 
+path="C:/Users/KilicarslanS/Documents/Onboarding test project/FJ-Onboarding-Project/"
 rng = np.random.default_rng()
 sample_data = pd.read_excel("Sample Dataset.xlsx")
 sample_data = sample_data.set_index('Month')
@@ -46,7 +42,7 @@ sample_data_quarterly.to_excel("Quarterly sample data.xlsx")
 sample_data_monthly.to_excel("Monthly sample data.xlsx")
 
 #Q1.b
-# already filled na in subquestion a but still here is the function to fillna
+# already filled na in subquestion a but still here is a function to fillna
 def replace_na(data, freq='Month'):
     if data.isnull().values.any()==False:
         print("There are no NaN values in this data set")
@@ -72,7 +68,7 @@ sample_data_quarterly = discard_dates(sample_data_quarterly,'2022-08-01')
 sample_data_monthly = discard_dates(sample_data_monthly,'2022-08-01')
 
 #Calculate 6 months rolling average for trend, also fit regression line 
-#ACF to detect seasonality
+
 def get_stl_decomp(data):
     res = STL(data).fit()
     return res
@@ -83,7 +79,7 @@ def rolmean(data, window):
     
 def get_trend(data):
     """
-    Get the linear trend on the data which makes the time
+    Get the linear trend on the data which may make the time
     series non-stationary
     """
     n = len(data.index)
@@ -106,8 +102,7 @@ def invert_trend(index, values, trend):
     res = res + trend
     return res
 
-def ts_analysis_plots(data, submodel, path="D:/Fujitsu onboargin project/Quarterly_Analysis", n_lags=6, window=6):
-
+def ts_analysis_plots(data, submodel, path="Quarterly_Analysis", n_lags=6, window=6):
     def plot_cf(ax, fn, data, n_lags):
         """
         Plot autocorrelation functions for the loads
@@ -116,9 +111,7 @@ def ts_analysis_plots(data, submodel, path="D:/Fujitsu onboargin project/Quarter
             fn(data, ax=ax, lags=n_lags, color="#0504aa")
         else:
             fn(data, ax=ax, lags=n_lags, color="#0504aa",method='ywm')
-        # for i in range(1, 5):
-        #     ax.axvline(x=24*i, ymin=0.0, ymax=1.0, color='grey', ls="--")    
-
+        
     # AD Fuller test and linear trend of the time series
     trend = get_trend(data)
     rol_mean = rolmean(data, window=window)
@@ -141,28 +134,28 @@ def ts_analysis_plots(data, submodel, path="D:/Fujitsu onboargin project/Quarter
     axs[1].plot(stl_res_season, color='#0504aa')
     axs[1].set(xlabel="Date", ylabel="SEASONAL", title="Seasonal Component")
     # autocorrelation function
-    plot_cf(axs[2], plot_acf, stl_res_season, n_lags)
+    plot_cf(axs[2], plot_acf, data, n_lags)
     axs[2].set(xlabel="lag", ylabel="ACF value")
     plt.tight_layout()
     # partial autocorrelation function
-    plot_cf(axs[3], plot_pacf, stl_res_season, n_lags)
+    plot_cf(axs[3], plot_pacf, data, n_lags)
     axs[3].set(xlabel="lag", ylabel="PACF value")
     
-    fig.savefig('{}/{}_analysis.png'.format(path, product))
+    fig.savefig('{}/{}_analysis.png'.format(path, submodel))
 
 
 for product in products:
-    print(product)
+  
     n_lags_q=math.floor((sample_data_quarterly.groupby('Submodel').count().loc[product, 'Orders']/2)-1)
     n_lags_m=math.floor((sample_data_monthly.groupby('Submodel').count().loc[product, 'Orders']/2)-1)
     ts_analysis_plots(sample_data_quarterly.loc[sample_data_quarterly['Submodel']==product,'Orders'], 
                         submodel=product,
-                        path="D:/Fujitsu onboargin project/Quarterly_Analysis",
+                        path="C:/Users/KilicarslanS/Documents/Onboarding test project/FJ-Onboarding-Project/Quarterly_Analysis",
                         n_lags=n_lags_q,
                         window=3)
     ts_analysis_plots(sample_data_monthly.loc[sample_data_monthly['Submodel']==product,'Orders'],
                          submodel=product,
-                         path="D:/Fujitsu onboargin project/Monthly_Analysis",
+                         path="C:/Users/KilicarslanS/Documents/Onboarding test project/FJ-Onboarding-Project/Monthly_Analysis",
                          n_lags=n_lags_m,
                          window=6)
 plt.close('all')
@@ -191,7 +184,6 @@ def mape(y, yhat, perc=True):
     return mape * 100. if perc else mape
 
 mape_scorer = make_scorer(mape, greater_is_better=False)
-sample_data_quarterly_12 = sample_data_quarterly[sample_data_quarterly.groupby('Submodel')['Orders'].transform('count')>11]
 
 def train_xgb(params, X_train, y_train):
     """
@@ -224,7 +216,8 @@ def train_xgb(params, X_train, y_train):
         result = model.fit(X_train, 
                             y_train.values.ravel(),
                             eval_set=[(X_train, y_train.values.ravel())],
-                            early_stopping_rounds=50)
+                            early_stopping_rounds=50,
+                            verbose=False)
 
         # cross validate using the right iterator for time series
         cv_space = TimeSeriesSplit(n_splits=5)
@@ -245,6 +238,7 @@ def train_xgb(params, X_train, y_train):
             "status": STATUS_FAIL
         }
 
+from hyperopt.pyll.base import scope
 def optimize_xgb(X_train, y_train, max_evals=10):
     """
     Run Bayesan optimization to find the optimal XGBoost algorithm
@@ -263,8 +257,8 @@ def optimize_xgb(X_train, y_train, max_evals=10):
     """
     
     space = {
-        "n_estimators": hp.quniform("n_estimators", 100, 1000, 10),
-        "max_depth": hp.quniform("max_depth", 1, 8, 1),
+        "n_estimators": scope.int(hp.quniform("n_estimators", 100, 1000, 10)),
+        "max_depth": scope.int(hp.quniform("max_depth", 1, 8, 1)),
         "learning_rate": hp.loguniform("learning_rate", -5, 1),
         "subsample": hp.uniform("subsample", 0.8, 1),
         "gamma": hp.quniform("gamma", 0, 100, 1)
@@ -318,7 +312,6 @@ def create_ts_features(data):
 
 def encode_categorical(data):
     ohe = OneHotEncoder(drop='first')
-
     data_train_object = data.select_dtypes('category')
     ohe.fit(data_train_object)
     codes = ohe.transform(data_train_object).toarray()
@@ -326,29 +319,10 @@ def encode_categorical(data):
     data_ = pd.concat([data.select_dtypes(exclude='category'), 
                         pd.DataFrame(codes, columns=feature_names, index=data.index).astype(int)], axis=1)
     return data_, ohe
- 
-"""
-for product in products[0:1]:
-    ts_features = create_ts_features(sample_data_quarterly_12.loc[sample_data_quarterly_12['Submodel']==product, 'Orders'])
-    lag_features = create_lag_features(sample_data_quarterly_12.loc[sample_data_quarterly_12['Submodel']==product,'Orders'], 2)
-    features = ts_features.join(lag_features, how='outer').dropna()
-    
-    X_train = features.iloc[:-4,:]
-    X_train, ohe = encode_categorical(X_train)
-    y_train = sample_data_quarterly_12.loc[sample_data_quarterly_12['Submodel']==product,'Orders'][1:-4]
-    # y_train, y_train_trend = remove_trend(y_train.index, y_train.values)
 
-    y_test = sample_data_quarterly_12.loc[sample_data_quarterly_12['Submodel']==product,'Orders'][-4:]
-    xgb_model = {}
-    best, trials = optimize_xgb(X_train, y_train, max_evals=5)
-    res = train_xgb(best, X_train, y_train)
-    xgb_model[product] = res["model"]
-    
-    # lags used in building the features for the one-step ahead model
-    feature_lags = [int(f.split("_")[1]) for f in features if "lag" in f]
-"""
+
 def recursive_forecast(y, cols, ohe, model, lags, 
-                       n_steps=13, step="1Q"):
+                       n_steps=9, step="1Q"):
     
     """
     Parameters
@@ -376,7 +350,7 @@ def recursive_forecast(y, cols, ohe, model, lags,
     for date in fcast_range:
         ts_features = create_ts_features(X_test_)        
         new_point = fcasted_values[-1] if len(fcasted_values) > 0 else 0.0   
-        target = target.append(pd.Series(index=[date], data=new_point))
+        target = pd.concat([target, pd.Series(index=[date], data=new_point)])
         if len(lags) > 0:
             lags_features = create_lag_features(target, n_lags=lags[0]+1)
             features = pd.concat([ts_features, lags_features], axis=1, join="inner").dropna()
@@ -393,15 +367,69 @@ def recursive_forecast(y, cols, ohe, model, lags,
         
     return pd.Series(index=fcast_range, data=fcasted_values)
 
-"""
-forecasts = recursive_forecast(y=y_train, cols=X_train.columns, ohe=ohe, model=xgb_model[products[0]], lags=feature_lags)
-print("True values \n",sample_data_quarterly_12.loc[sample_data_quarterly_12['Submodel']==products[0],'Orders'][-4:], " \n forecasts \n", forecasts)
-fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-ax.plot(sample_data_quarterly_12.loc[sample_data_quarterly_12['Submodel']==products[0],'Orders'], label="target", color="blue")
-ax.plot(forecasts, label="predicted", color="red")
-ax.legend()
-plt.show()
-"""
+list_of_forecasts = []
+sample_data_quarterly_6 = sample_data_quarterly[sample_data_quarterly.groupby('Submodel')['Orders'].transform('count')>6]
+sample_data_quarterly_6_ = sample_data_quarterly[sample_data_quarterly.groupby('Submodel')['Orders'].transform('count')<7]
+
+for product in sample_data_quarterly_6['Submodel'].unique():
+    ts_features = create_ts_features(sample_data_quarterly_6.loc[sample_data_quarterly_6['Submodel']==product, 'Orders'])
+    lag_features = create_lag_features(sample_data_quarterly_6.loc[sample_data_quarterly_6['Submodel']==product,'Orders'], 2)
+    features = ts_features.join(lag_features, how='outer').dropna()
+    
+    #X_train = features.iloc[:-4,:]
+    #X_train, ohe = encode_categorical(X_train)
+    #y_train = sample_data_quarterly_6.loc[sample_data_quarterly_6['Submodel']==product,'Orders'][1:-4]
+    #y_train, y_train_trend = remove_trend(y_train.index, y_train.values)
+    #y_test = sample_data_quarterly_6.loc[sample_data_quarterly_6['Submodel']==product,'Orders'][-4:]
+
+    X_train = features.iloc[:, :]
+    y_train = sample_data_quarterly_6.loc[sample_data_quarterly_6['Submodel']==product,'Orders'][1:]
+    X_train, ohe = encode_categorical(X_train)
+    xgb_model = {}
+    best, trials = optimize_xgb(X_train, y_train, max_evals=5)
+    res = train_xgb(best, X_train, y_train)
+    xgb_model[product] = res["model"]
+    
+    # lags used in building the features for the one-step ahead model
+    feature_lags = [int(f.split("_")[1]) for f in features if "lag" in f]
+    
+    forecast_ = recursive_forecast(y=y_train, cols=X_train.columns, ohe=ohe, model=xgb_model[product], lags=feature_lags)
+    forecast_df = forecast_.to_frame(name="Forecast")
+    forecast_df["Submodel"] = product
+
+    list_of_forecasts.append(forecast_df)
+
+
+from sklearn.metrics import mean_squared_error
+from math import sqrt
+from matplotlib import pyplot
+from numpy import mean
+
+for product in sample_data_quarterly_6_["Submodel"].unique():
+    series = sample_data_quarterly_6_.loc[sample_data_quarterly_6_['Submodel']==product, 'Orders']
+    X = series.values
+    train = X.copy()
+    #train, test = X[0:-4], X[-4:]
+    #window_sizes = range(1, 5) window size 2 provies the least rmse on test data
+    fcast_range = pd.date_range(series.index[-1], periods=9, freq="1Q")
+    window_size = 2
+    scores = list()
+    history = [x for x in train]
+    predictions = list()
+    for i in range(len(fcast_range)):
+        # make prediction
+        yhat = mean(history[-2:])
+        predictions.append(yhat)
+        # observation
+        history.append(yhat)
+    list_of_forecasts.append(pd.DataFrame({"Submodel":product,"Forecast":predictions}, index=fcast_range))
+    # report performance
+    #rmse = sqrt(mean_squared_error(test, predictions))
+    #scores.append(rmse)
+    #print('w=%d RMSE:%.3f' % (w, rmse))
+sample_data_quarterly_forecast = pd.concat(list_of_forecasts)
+sample_data_quarterly_forecast.to_excel("Quarterly_Forecasts_9.xlsx")
+
 # Q1.d
 from pmdarima.arima import auto_arima
 import pmdarima as pm
@@ -421,26 +449,40 @@ def plot_arima(truth, forecasts):
     
     return
 
-for product in products:
-    data_ = sample_data_monthly.loc[sample_data_monthly['Submodel']==product,'Orders']
-    train = data_[:-6]
-    test = data_[-6:]
-    stepwise_fit = auto_arima(train,
-                            test='adf',
-                            start_p=0, d=0, start_q=1,
-                            max_p=3, max_d=3, max_q=3,
-                            start_P=0, D=0, start_Q=0,
-                            max_P=3, max_D=3, max_Q=3,
-                            m=12,
-                            seasonal=False,
-                            trace=True,
-                            error_action='ignore',  # don't want to know if an order does not work
-                            suppress_warnings=True,  # don't want convergence warnings
-                            stepwise=False)
-    print(stepwise_fit.summary())
-    in_sample_preds = stepwise_fit.predict_in_sample()
-    forecasts = pd.Series(stepwise_fit.predict(n_periods=6), index=test.index)
-    plot_arima(data_, forecasts)
-    plt.show()
-    # arima = {}
-    # arima[product] = 
+def get_monthly_forcasts():
+    list_of_forecasts_monthly = []
+    for product in products:
+        data_ = sample_data_monthly.loc[sample_data_monthly['Submodel']==product,'Orders']
+        fcast_range = pd.date_range(data_.index[-1], periods=9, freq="1M")
+        train = data_.copy()
+        #train = data_[:-6]
+        #test = data_[-6:]
+        stepwise_fit = auto_arima(train,
+                                test='adf',
+                                start_p=0, d=None, start_q=1,
+                                max_p=3, max_d=2, max_q=3,
+                                start_P=0, D=0, start_Q=0,
+                                max_P=3, max_D=3, max_Q=3,
+                                m=12,
+                                max_order=5,
+                                seasonal=False,
+                                trace=True,
+                                error_action='ignore',  # don't want to know if an order does not work
+                                suppress_warnings=True,  # don't want convergence warnings
+                                stepwise=False)
+        print(stepwise_fit.summary())
+        in_sample_preds = stepwise_fit.predict_in_sample()
+        forecasts_monthly = stepwise_fit.predict(n_periods=9).values
+        print(forecasts_monthly)
+        list_of_forecasts_monthly.append(pd.DataFrame({"Submodel":product,"Forecast":forecasts_monthly}, index=fcast_range))
+    sample_data_monthly_forecasts = pd.concat(list_of_forecasts_monthly)
+    sample_data_monthly_forecasts.to_excel("Monthly_Forecast_9.xlsx")
+    return sample_data_monthly_forecasts
+#Question1.f
+sample_data_monthly_forecasts = get_monthly_forcasts()
+sample_data_monthly_forecasts["Quarter"] = sample_data_monthly_forecasts.index.quarter
+sample_data_monthly_forecasts["Year"] = sample_data_monthly_forecasts.index.year
+
+sample_data_monthly_forecasts_summed = sample_data_monthly_forecasts.groupby(["Submodel", "Quarter","Year","Forecast"],group_keys=True).agg({'Forecast': 'sum'})
+proportions = sample_data_monthly_forecasts_summed.groupby(level=[0,1,2]).apply(lambda x:
+                                                 100 * x / float(x.sum()))
